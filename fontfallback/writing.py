@@ -1,100 +1,127 @@
-import re
+from fontTools.ttLib import TTFont
+
 from PIL import ImageFont, ImageDraw
-from lingua import Language, LanguageDetectorBuilder
-
-from . import utils
+from typing import Optional, Dict, Literal, Tuple, List
 
 
-def process_language(text: str):
+def load_fonts(*font_paths: str) -> Dict[str, TTFont]:
     """
-    Detects languages, and puts them into a list with their assigned language code
+    Loads font files specified by paths into memory and returns a dictionary of font objects.
     """
-    characters = []
-
-    # It wouldn't be practical to use all the langauges. So I only added some of them
-    detector = LanguageDetectorBuilder.from_languages(
-        Language.ENGLISH,
-        Language.KOREAN,
-        Language.JAPANESE,
-        Language.CHINESE,
-        Language.ARABIC,
-        Language.BENGALI,
-        Language.HINDI,
-    ).build()
-
-    sentences = re.split(r"(\s+)", text)
-
-    # Connectives, here is being refered to Script/Cursive languages, feel free to add more to your liking.
-    # Make sure to add them to the detector as well.
-    connective_languages = {Language.ARABIC, Language.BENGALI, Language.HINDI}
-
-    for word in sentences:
-        lang = detector.detect_language_of(word)
-
-        if lang in connective_languages:
-            characters.append([word, str(lang.iso_code_639_1.name).lower()])
-        else:
-            for char in word:
-                if char.isspace():
-                    characters.append([char, None])
-
-                elif char in utils.punctuations:
-                    characters.append([char, "en"])
-
-                elif char.isalnum():
-                    try:
-                        detected = str(lang.iso_code_639_1.name).lower()
-                    except:
-                        detected = "unknown"
-                    characters.append([char, detected])
-
-    return characters
+    fonts = {}
+    for path in font_paths:
+        font = TTFont(path)
+        fonts[path] = font
+    return fonts
 
 
-def draw_text(
+def draw_text_v2(
     draw: ImageDraw.ImageDraw,
-    cords: tuple,
+    xy: Tuple[int, int],
     text: str,
+    color: Tuple[int, int, int],
+    fonts: Dict[str, TTFont],
     size: int,
-    color: tuple,
-    path: dict,
-):
+    anchor: Optional[str] = None,
+    align: Literal["left", "center", "right"] = "left",
+    direction: Literal["rtl", "ltr", "ttb"] = "ltr",
+) -> None:
     """
-    Draw a single line text.
+    Draws text on an image at given coordinates, using specified size, color, and fonts.
     """
-    offset = 0
-    sentence = process_language(text)
 
-    for char, detect_lang in sentence:
-        cords_ = (cords[0] + offset, cords[1])
+    def has_glyph(font: TTFont, glyph: str) -> bool:
+        """
+        Checks if the given font contains a glyph for the specified character.
+        """
+        for table in font["cmap"].tables:
+            if table.cmap.get(ord(glyph)):
+                return True
+        return False
 
-        font_info = path.get(detect_lang, path["en"])
-        font_path = font_info.get("path")
+    def merge_chunks(text: str, fonts: Dict[str, TTFont]) -> List[List[str]]:
+        """
+        Merges consecutive characters with the same font into clusters, optimizing font lookup.
+        """
+        chunks = []
+        last_font_index = 0  # Initialize the index of the last font searched
 
-        font = ImageFont.truetype(font_path, size)
-        draw.text(cords_, char, color, font)
+        for char in text:
+            found = False
+            for idx, (font_path, font) in enumerate(
+                list(fonts.items())[last_font_index:], start=last_font_index
+            ):
+                if has_glyph(font, char):
+                    chunks.append([char, font_path])
+                    last_font_index = idx  # Update the index of the last font searched
+                    found = True
+                    break
 
-        box = font.getbbox(char)
-        offset += box[2] - box[0]
+            # If the character is not found in any font, append it with an empty font path
+            if not found:
+                chunks.append([char, ""])
+
+        cluster = chunks[:1]
+
+        for char, font_path in chunks[1:]:
+            if cluster[-1][1] == font_path:
+                cluster[-1][0] += char
+            else:
+                cluster.append([char, font_path])
+
+        return cluster
+
+    y_offset = 0
+    sentence = merge_chunks(text, fonts)
+
+    for words in sentence:
+        xy_ = (xy[0] + y_offset, xy[1])
+
+        font = ImageFont.truetype(words[1], size)
+        draw.text(
+            xy=xy_,
+            text=words[0],
+            fill=color,
+            font=font,
+            anchor=anchor,
+            align=align,
+            direction=direction,
+            embedded_color=True,
+        )
+
+        draw.text
+        box = font.getbbox(words[0])
+        y_offset += box[2] - box[0]
 
 
-def draw_multitext(
+def draw_multiline_text_v2(
     draw: ImageDraw.ImageDraw,
-    cords: tuple,
+    xy: Tuple[int, int],
     text: str,
+    color: Tuple[int, int, int],
+    fonts: Dict[str, TTFont],
     size: int,
-    color: tuple,
-    path: dict,
-    spacing=0,
-):
+    anchor: Optional[str] = None,
+    align: Literal["left", "center", "right"] = "left",
+    direction: Literal["rtl", "ltr", "ttb"] = "ltr",
+) -> None:
     """
-    Draw a multi-line line text.
+    Draws multiple lines of text on an image, handling newline characters and adjusting spacing between lines.
     """
-    spacing = cords[1]
+    spacing = xy[1]
     lines = text.split("\n")
 
     for line in lines:
-        mod_cord = (cords[0], spacing)
-        draw_text(draw, mod_cord, line, size, color, path)
-
+        mod_cord = (xy[0], spacing)
+        draw_text_v2(
+            draw,
+            xy=mod_cord,
+            text=line,
+            color=color,
+            fonts=fonts,
+            size=size,
+            anchor=anchor,
+            align=align,
+            direction=direction,
+        )
         spacing += size + 5

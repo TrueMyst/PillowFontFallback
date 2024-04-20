@@ -1,28 +1,41 @@
 from PIL import Image, ImageDraw
 from fontfallback import writing
 
+import time
 
-# Example usage
-image = Image.new("RGB", (500, 230), color=(255, 255, 255))
-draw = ImageDraw.Draw(image)
-language_dict = {
-    "en": {"path": "./fonts/Oswald/Oswald-Regular.ttf"},
-    "ko": {"path": "./fonts/NotoSansKR/NotoSansKR-Regular.ttf"},
-    "ja": {"path": "./fonts/NotoSansJP/NotoSansJP-Regular.ttf"},
-    "zh": {"path": "./fonts/NotoSansSC/NotoSansSC-Regular.ttf"},
-    "ar": {"path": "./fonts/NotoSansArabic/NotoSansArabic-Regular.ttf"},
-    # Add hindi and bengali fonts here
-}
+start = time.time()
 
-text1 = """おやすみ おやすみ
+lyrics = """
+My time - Bo en
+おやすみ おやすみ
 Close your, eyes and you'll leave this dream
 おやすみ おやすみ
 I know that it's hard to do
 """
 
-text2 = "Goodbye وداعا さようなら 안녕히 계세요 再见"
+text_variants = """
+English Text: That's amazing
+Arabic Text: هذا مذهل
+Korean Text: 그 놀라운
+Chinese Simplified: 太棒了
+Japanese: すごいですね
+"""
 
-writing.draw_text(draw, (10, 130), text2, 20, (0, 0, 0), language_dict)
-writing.draw_multitext(draw, (10, 10), text1, 20, (0, 0, 0), language_dict)
+fonts = writing.load_fonts(
+    "./fonts/Oswald/Oswald-Regular.ttf",
+    "./fonts/NotoSansJP/NotoSansJP-Regular.ttf",
+    "./fonts/NotoSansKR/NotoSansKR-Regular.ttf",
+    "./fonts/NotoSansSC/NotoSansSC-Regular.ttf",
+    "./fonts/NotoSansArabic/NotoSansArabic-Regular.ttf",
+)
+
+image = Image.new("RGB", (500, 350), color=(255, 255, 255))
+draw = ImageDraw.Draw(image)
+
+writing.draw_multiline_text_v2(draw, (40, 10), lyrics, (0, 0, 0), fonts, 20)
+writing.draw_multiline_text_v2(draw, (40, 150), text_variants, (0, 0, 0), fonts, 20)
 
 image.show()
+
+end = time.time()
+print(end - start)

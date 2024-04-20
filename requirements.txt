@@ -1,2 +1,2 @@
 pillow
-lingua-language-detector
+
