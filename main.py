@@ -5,10 +5,8 @@ import time
 
 start = time.time()
 
-lyrics = """
-My time - Bo en
-おやすみ おやすみ
-Close your, eyes and you'll leave this dream
+lyrics = """おやすみ おやすみ
+Close your eyes and you'll leave this dream
 おやすみ おやすみ
 I know that it's hard to do
 """
@@ -32,7 +30,7 @@ fonts = writing.load_fonts(
 image = Image.new("RGB", (500, 350), color=(255, 255, 255))
 draw = ImageDraw.Draw(image)
 
-writing.draw_multiline_text_v2(draw, (40, 10), lyrics, (0, 0, 0), fonts, 20)
+writing.draw_multiline_text_v2(draw, (40, 30), lyrics, (0, 0, 0), fonts, 20)
 writing.draw_multiline_text_v2(draw, (40, 150), text_variants, (0, 0, 0), fonts, 20)
 
 image.show()

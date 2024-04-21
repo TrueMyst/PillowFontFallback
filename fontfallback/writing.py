@@ -15,6 +15,39 @@ def load_fonts(*font_paths: str) -> Dict[str, TTFont]:
     return fonts
 
 
+def has_glyph(font: TTFont, glyph: str) -> bool:
+    """
+    Checks if the given font contains a glyph for the specified character.
+    """
+    for table in font["cmap"].tables:
+        if table.cmap.get(ord(glyph)):
+            return True
+    return False
+
+
+def merge_chunks(text: str, fonts: Dict[str, TTFont]) -> List[List[str]]:
+    """
+    Merges consecutive characters with the same font into clusters, optimizing font lookup.
+    """
+    chunks = []
+
+    for char in text:
+        for font_path, font in fonts.items():
+            if has_glyph(font, char):
+                chunks.append([char, font_path])
+                break
+
+    cluster = chunks[:1]
+
+    for char, font_path in chunks[1:]:
+        if cluster[-1][1] == font_path:
+            cluster[-1][0] += char
+        else:
+            cluster.append([char, font_path])
+
+    return cluster
+
+
 def draw_text_v2(
     draw: ImageDraw.ImageDraw,
     xy: Tuple[int, int],
@@ -29,47 +62,6 @@ def draw_text_v2(
     """
     Draws text on an image at given coordinates, using specified size, color, and fonts.
     """
-
-    def has_glyph(font: TTFont, glyph: str) -> bool:
-        """
-        Checks if the given font contains a glyph for the specified character.
-        """
-        for table in font["cmap"].tables:
-            if table.cmap.get(ord(glyph)):
-                return True
-        return False
-
-    def merge_chunks(text: str, fonts: Dict[str, TTFont]) -> List[List[str]]:
-        """
-        Merges consecutive characters with the same font into clusters, optimizing font lookup.
-        """
-        chunks = []
-        last_font_index = 0  # Initialize the index of the last font searched
-
-        for char in text:
-            found = False
-            for idx, (font_path, font) in enumerate(
-                list(fonts.items())[last_font_index:], start=last_font_index
-            ):
-                if has_glyph(font, char):
-                    chunks.append([char, font_path])
-                    last_font_index = idx  # Update the index of the last font searched
-                    found = True
-                    break
-
-            # If the character is not found in any font, append it with an empty font path
-            if not found:
-                chunks.append([char, ""])
-
-        cluster = chunks[:1]
-
-        for char, font_path in chunks[1:]:
-            if cluster[-1][1] == font_path:
-                cluster[-1][0] += char
-            else:
-                cluster.append([char, font_path])
-
-        return cluster
 
     y_offset = 0
     sentence = merge_chunks(text, fonts)
